@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6
+    container_name: face-recognition-db
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: face-recognition
+
+  backend:
+    build: ./backend
+    container_name: face-recognition-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/face-recognition
+      - ML_SERVICE_INDIVIDUAL_URL=http://ml-individual:5001
+      - ML_SERVICE_GROUP_URL=http://ml-group:5002
+      - ML_SERVICE_CROWD_URL=http://ml-crowd:5003
+    depends_on:
+      - mongodb
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  frontend:
+    build: ./frontend
+    container_name: face-recognition-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  ml-individual:
+    build: ./ml-services/individual_auth
+    container_name: ml-individual-auth
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./ml-services/individual_auth:/app
+
+  ml-group:
+    build: ./ml-services/group_auth
+    container_name: ml-group-auth
+    ports:
+      - "5002:5002"
+    volumes:
+      - ./ml-services/group_auth:/app
+
+  ml-crowd:
+    build: ./ml-services/crowd_counting
+    container_name: ml-crowd-counting
+    ports:
+      - "5003:5003"
+    volumes:
+      - ./ml-services/crowd_counting:/app
+
+volumes:
+  mongodb_data:

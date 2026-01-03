@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6
+    container_name: face-recognition-db-prod
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_backup:/backup
+    environment:
+      MONGO_INITDB_DATABASE: face-recognition
+    networks:
+      - face-recognition-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: face-recognition-backend-prod
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongodb:27017/face-recognition
+      - ML_SERVICE_INDIVIDUAL_URL=http://ml-individual:5001
+      - ML_SERVICE_GROUP_URL=http://ml-group:5002
+      - ML_SERVICE_CROWD_URL=http://ml-crowd:5003
+    env_file:
+      - ./backend/.env.production
+    depends_on:
+      - mongodb
+    networks:
+      - face-recognition-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: face-recognition-frontend-prod
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - face-recognition-network
+
+  ml-individual:
+    build:
+      context: ./ml-services/individual_auth
+      dockerfile: Dockerfile
+    container_name: ml-individual-auth-prod
+    restart: always
+    ports:
+      - "5001:5001"
+    volumes:
+      - ml_models:/app/models
+    networks:
+      - face-recognition-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  ml-group:
+    build:
+      context: ./ml-services/group_auth
+      dockerfile: Dockerfile
+    container_name: ml-group-auth-prod
+    restart: always
+    ports:
+      - "5002:5002"
+    volumes:
+      - ml_models:/app/models
+    networks:
+      - face-recognition-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  ml-crowd:
+    build:
+      context: ./ml-services/crowd_counting
+      dockerfile: Dockerfile
+    container_name: ml-crowd-counting-prod
+    restart: always
+    ports:
+      - "5003:5003"
+    volumes:
+      - ml_models:/app/models
+    networks:
+      - face-recognition-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    restart: always
+    ports:
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - face-recognition-network
+
+volumes:
+  mongodb_data:
+  mongodb_backup:
+  ml_models:
+
+networks:
+  face-recognition-network:
+    driver: bridge

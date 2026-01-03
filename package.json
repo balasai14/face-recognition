@@ -1,0 +1,30 @@
+{
+  "name": "face-recognition-crowd-analysis",
+  "version": "1.0.0",
+  "description": "Multi-Level Face Recognition and Crowd Analysis System",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\" \"npm run ml-services\"",
+    "server": "cd backend && npm run dev",
+    "client": "cd frontend && npm run dev",
+    "ml-services": "cd ml-services && python -m flask run",
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "build": "cd frontend && npm run build",
+    "test": "npm run test --workspaces"
+  },
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "keywords": [
+    "face-recognition",
+    "crowd-analysis",
+    "deep-learning",
+    "MERN"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
